@@ -42,4 +42,22 @@ contract Stablecoin is ERC20 {
             usdInDpcPrice;
         depositorCoin.mint(msg.sender, mintDepositorCoinAmount);
     }
+
+    function withdrawCollateralBuffer(
+        uint256 burnDepositorCoinAmount
+    ) external {
+        depositorCoin.burn(msg.sender, burnDepositorCoinAmount);
+
+        uint256 surplusInUsd = 500;
+        uint256 usdInDpcPrice = depositorCoin.totalSupply() / surplusInUsd;
+
+        uint256 refundingUsd = burnDepositorCoinAmount / usdInDpcPrice;
+
+        uint256 ethUsdPrice = 1000;
+
+        uint256 refundingEth = refundingUsd / ethUsdPrice;
+
+        (bool success, ) = msg.sender.call{value: refundingEth}("");
+        require(success, "STC: Withdraw refund transaction failed");
+    }
 }

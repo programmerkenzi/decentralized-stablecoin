@@ -30,4 +30,16 @@ contract Stablecoin is ERC20 {
         (bool success, ) = msg.sender.call{value: refundingEth}("");
         require(success, "STC: Burn refund transaction failed");
     }
+
+    function depositCollateralBuffer() external payable {
+        uint256 surplusInUsd = 500;
+        uint256 ethUsdPrice = 1000;
+
+        uint256 usdInDpcPrice = depositorCoin.totalSupply() / surplusInUsd;
+
+        uint256 mintDepositorCoinAmount = msg.value *
+            ethUsdPrice *
+            usdInDpcPrice;
+        depositorCoin.mint(msg.sender, mintDepositorCoinAmount);
+    }
 }

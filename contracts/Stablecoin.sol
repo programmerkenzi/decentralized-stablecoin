@@ -44,11 +44,26 @@ contract Stablecoin is ERC20 {
     }
 
     function depositCollateralBuffer() external payable {
-        uint256 surplusInUsd = _getSurplusInContractInUsd();
+        int256 deficitOrSurplusInUsd = _getDeficitOrSurplusInContractInUsd();
+        uint256 usdInDpcPrice;
+        uint256 addedSurplusEth;
+        if (deficitOrSurplusInUsd <= 0) {
+            uint256 deficitInUsd = uint256(deficitOrSurplusInUsd * -1);
+            uint256 deficitInEth = deficitInUsd / oracle.getPrice();
 
-        uint256 usdInDpcPrice = depositorCoin.totalSupply() / surplusInUsd;
+            addedSurplusEth = msg.value - deficitInEth;
 
-        uint256 mintDepositorCoinAmount = msg.value *
+            depositorCoin = new DepositorCoin("Depositor Coin", "DPC");
+
+            usdInDpcPrice = 1;
+        } else {
+            uint256 surplusInUsd = uint256(deficitOrSurplusInUsd);
+
+            usdInDpcPrice = depositorCoin.totalSupply() / surplusInUsd;
+            addedSurplusEth = msg.value;
+        }
+
+        uint256 mintDepositorCoinAmount = addedSurplusEth *
             oracle.getPrice() *
             usdInDpcPrice;
         depositorCoin.mint(msg.sender, mintDepositorCoinAmount);
@@ -59,7 +74,13 @@ contract Stablecoin is ERC20 {
     ) external {
         depositorCoin.burn(msg.sender, burnDepositorCoinAmount);
 
-        uint256 surplusInUsd = _getSurplusInContractInUsd();
+        int256 deficitOrSurplusInUsd = _getDeficitOrSurplusInContractInUsd();
+        require(
+            deficitOrSurplusInUsd > 0,
+            "STC: No depositor funds to withdraw"
+        );
+
+        uint256 surplusInUsd = uint256(deficitOrSurplusInUsd);
         uint256 usdInDpcPrice = depositorCoin.totalSupply() / surplusInUsd;
 
         uint256 refundingUsd = burnDepositorCoinAmount / usdInDpcPrice;
@@ -70,14 +91,19 @@ contract Stablecoin is ERC20 {
         require(success, "STC: Withdraw refund transaction failed");
     }
 
-    function _getSurplusInContractInUsd() private view returns (uint256) {
+    function _getDeficitOrSurplusInContractInUsd()
+        private
+        view
+        returns (int256)
+    {
         uint256 ethContractBalanceInUsd = (address(this).balance - msg.value) *
             oracle.getPrice();
 
         uint256 totalStableCoinBalanceInUsd = totalSupply;
 
-        uint256 surplus = ethContractBalanceInUsd - totalStableCoinBalanceInUsd;
+        int256 surplusOrDeficit = int256(ethContractBalanceInUsd) -
+            int256(totalStableCoinBalanceInUsd);
 
-        return surplus;
+        return surplusOrDeficit;
     }
 }

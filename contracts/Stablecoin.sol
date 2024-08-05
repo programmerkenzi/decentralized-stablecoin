@@ -8,18 +8,23 @@ import {Oracle} from "./Oracle.sol";
 contract Stablecoin is ERC20 {
     DepositorCoin public depositorCoin;
     Oracle public oracle;
+    uint256 public feeRatePercentage;
 
     constructor(
         string memory _name,
         string memory _symbol,
-        Oracle _oracle
+        Oracle _oracle,
+        uint256 _feeRatePercentage
     ) ERC20(_name, _symbol, 18) {
         oracle = _oracle;
+        feeRatePercentage = _feeRatePercentage;
     }
 
     // mint stablecoin by sending eth, so use payable modifier here to accept ether
     function mint() external payable {
-        uint256 mintStablecoinAmount = msg.value * oracle.getPrice();
+        // the fee will be own by the depositor coin holders automatically, no need to transfer fee to them because the fee is already in the contract
+        uint256 fee = _getFee(msg.value);
+        uint256 mintStablecoinAmount = (msg.value - fee) * oracle.getPrice();
 
         _mint(msg.sender, mintStablecoinAmount);
     }
@@ -27,11 +32,15 @@ contract Stablecoin is ERC20 {
     // burn stablecoin to get back eth
     function burn(uint256 burnStablecoinAmount) external {
         _burn(msg.sender, burnStablecoinAmount);
-
         uint256 refundingEth = burnStablecoinAmount / oracle.getPrice();
+        uint256 fee = _getFee(refundingEth);
 
-        (bool success, ) = msg.sender.call{value: refundingEth}("");
+        (bool success, ) = msg.sender.call{value: (refundingEth - fee)}("");
         require(success, "STC: Burn refund transaction failed");
+    }
+
+    function _getFee(uint256 ethAmount) private view returns (uint256) {
+        return (ethAmount * feeRatePercentage) / 100;
     }
 
     function depositCollateralBuffer() external payable {

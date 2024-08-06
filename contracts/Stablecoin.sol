@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC20} from "./ERC20.sol";
 import {DepositorCoin} from "./DepositorCoin.sol";
 import {Oracle} from "./Oracle.sol";
+import {FixedPoint, fromFraction, mulFixedPoint, devFixedPoint} from "./FixedPoint.sol";
 
 contract Stablecoin is ERC20 {
     DepositorCoin public depositorCoin;
@@ -86,11 +87,16 @@ contract Stablecoin is ERC20 {
         }
         uint256 surplusInUsd = uint256(deficitOrSurplusInUsd);
 
-        uint usdInDpcPrice = depositorCoin.totalSupply() / surplusInUsd;
+        FixedPoint usdInDpcPrice = fromFraction(
+            depositorCoin.totalSupply(),
+            surplusInUsd
+        );
 
-        uint256 mintDepositorCoinAmount = msg.value *
-            oracle.getPrice() *
-            usdInDpcPrice;
+        uint256 mintDepositorCoinAmount = mulFixedPoint(
+            msg.value * oracle.getPrice(),
+            (usdInDpcPrice)
+        );
+
         depositorCoin.mint(msg.sender, mintDepositorCoinAmount);
     }
 
@@ -106,9 +112,15 @@ contract Stablecoin is ERC20 {
         );
 
         uint256 surplusInUsd = uint256(deficitOrSurplusInUsd);
-        uint256 usdInDpcPrice = depositorCoin.totalSupply() / surplusInUsd;
+        FixedPoint usdInDpcPrice = fromFraction(
+            depositorCoin.totalSupply(),
+            surplusInUsd
+        );
 
-        uint256 refundingUsd = burnDepositorCoinAmount / usdInDpcPrice;
+        uint256 refundingUsd = devFixedPoint(
+            burnDepositorCoinAmount,
+            usdInDpcPrice
+        );
 
         uint256 refundingEth = refundingUsd / oracle.getPrice();
 

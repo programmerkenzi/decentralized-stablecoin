@@ -9,15 +9,21 @@ contract Stablecoin is ERC20 {
     DepositorCoin public depositorCoin;
     Oracle public oracle;
     uint256 public feeRatePercentage;
+    uint256 public initialCollateralRatioPercentage;
+    uint256 public depositorCoinLockTime;
 
     constructor(
         string memory _name,
         string memory _symbol,
         Oracle _oracle,
-        uint256 _feeRatePercentage
+        uint256 _feeRatePercentage,
+        uint256 _initialCollateralRatioPercentage,
+        uint256 _depositorCoinLockTime
     ) ERC20(_name, _symbol, 18) {
         oracle = _oracle;
         feeRatePercentage = _feeRatePercentage;
+        initialCollateralRatioPercentage = _initialCollateralRatioPercentage;
+        depositorCoinLockTime = _depositorCoinLockTime;
     }
 
     // mint stablecoin by sending eth, so use payable modifier here to accept ether
@@ -53,7 +59,22 @@ contract Stablecoin is ERC20 {
 
             addedSurplusEth = msg.value - deficitInEth;
 
-            depositorCoin = new DepositorCoin("Depositor Coin", "DPC");
+            uint256 requiredInitialSupplyInUsd = (initialCollateralRatioPercentage *
+                    totalSupply) / 100;
+
+            uint256 requiredInitialSupplyInEth = requiredInitialSupplyInUsd /
+                oracle.getPrice();
+
+            require(
+                addedSurplusEth >= requiredInitialSupplyInEth,
+                "STC: Initial collateral ratio not met"
+            );
+
+            depositorCoin = new DepositorCoin(
+                "Depositor Coin",
+                "DPC",
+                depositorCoinLockTime
+            );
 
             usdInDpcPrice = 1;
         } else {

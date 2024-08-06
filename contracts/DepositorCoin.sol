@@ -15,10 +15,14 @@ contract DepositorCoin is ERC20 {
     constructor(
         string memory _name,
         string memory _symbol,
-        uint256 _lockTime
+        uint256 _lockTime,
+        address _initialOwner,
+        uint256 _initialSupply
     ) ERC20(_name, _symbol, 18) {
         owner = msg.sender;
         unlockTime = block.timestamp + _lockTime;
+        // mint initial supply to the initial owner
+        _mint(_initialOwner, _initialSupply);
     }
 
     function mint(address to, uint value) external isUnlocked {
